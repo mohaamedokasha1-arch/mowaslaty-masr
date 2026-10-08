@@ -45,7 +45,8 @@ export function createApp(db: Database): express.Express {
     app.use(pinoHttp({ logger, autoLogging: { ignore: (req) => req.url === '/api/health' } }));
   }
 
-  app.use(express.json({ limit: '1mb' }));
+  // 10mb: GTFS text files uploaded via /api/admin/import/gtfs
+  app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ extended: true }));
 
   // ============= Routes =============

@@ -104,6 +104,9 @@ model Stop {
   address   String?
   type      StopType @default(BUS)
 
+  /// External identifier (e.g. GTFS stop_id) for idempotent imports
+  externalId String?
+
   cityId String
   city   City   @relation(fields: [cityId], references: [id], onDelete: Cascade)
 
@@ -124,6 +127,7 @@ model Stop {
   @@index([cityId])
   @@index([areaId])
   @@index([latitude, longitude])
+  @@index([externalId])
   @@fulltext([name, nameAr])
 }
 
@@ -165,6 +169,9 @@ model Route {
   dataSource      String?
   dataSourceUrl   String?
 
+  /// External identifier (e.g. GTFS route_id) for idempotent imports
+  externalId String?
+
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   publishedAt DateTime?
@@ -180,6 +187,7 @@ model Route {
   @@index([transportModeId])
   @@index([status])
   @@index([lastVerifiedAt])
+  @@index([externalId])
   @@fulltext([name, nameAr])
 }
 

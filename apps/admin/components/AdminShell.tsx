@@ -10,6 +10,7 @@ const NAV = [
   { href: '/reports', label: 'البلاغات', icon: '🚩' },
   { href: '/routes', label: 'الخطوط', icon: '🚌' },
   { href: '/stops', label: 'المحطات', icon: '🚏' },
+  { href: '/import', label: 'استيراد GTFS', icon: '📥' },
 ];
 
 export default function AdminShell({ children }: { children: React.ReactNode }) {

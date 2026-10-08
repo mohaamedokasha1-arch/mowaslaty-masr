@@ -1,0 +1,2 @@
+route_id,agency_id,route_short_name,route_long_name,route_desc,route_type,route_color
+R10,A1,H1,خط الأحرار,خط تجريبي من الموقف العمومي إلى منطقة الأحرار مرورا بسوق الجملة ومستشفى الحميات,3,e67e22

@@ -2,11 +2,13 @@ import { Router, type Request } from 'express';
 import { z } from 'zod';
 import {
   CONFIDENCE_LEVELS,
+  DATA_SOURCE_TYPES,
   FARE_TYPES,
   REPORT_STATUSES,
   ROUTE_STATUSES,
   STOP_TYPES,
 } from '@mowaslaty/shared';
+import { normalizeGtfsToImport, parseGtfsFiles, type GtfsFiles } from '../services/gtfs.js';
 import type { Database } from '../db/types.js';
 import { requireAdmin, requireAuth } from '../middleware/auth.js';
 import { badRequest, notFound } from '../middleware/error-handler.js';
@@ -231,6 +233,41 @@ export function adminRouter(db: Database): Router {
       res.json({ data });
     } catch (error) {
       next(error);
+    }
+  });
+
+  // ---------- Data import (GTFS) ----------
+
+  const importSchema = z.object({
+    sourceName: z.string().min(2).max(120),
+    sourceType: z.enum(DATA_SOURCE_TYPES).default('GTFS'),
+    sourceUrl: z.string().url().optional(),
+    files: z
+      .record(z.string())
+      .refine(
+        (f) => ['stops.txt', 'routes.txt', 'trips.txt', 'stop_times.txt'].every((k) => f[k]),
+        { message: 'Required GTFS files: stops.txt, routes.txt, trips.txt, stop_times.txt' },
+      ),
+  });
+
+  /**
+   * POST /api/admin/import/gtfs
+   * Body: { sourceName, sourceType?, sourceUrl?, files: { 'stops.txt': "...", ... } }
+   * Idempotent — safe to re-run when the feed updates.
+   */
+  router.post('/import/gtfs', async (req, res, next) => {
+    try {
+      const { sourceName, sourceType, sourceUrl, files } = importSchema.parse(req.body);
+      const raw = parseGtfsFiles(files as GtfsFiles);
+      const { data: cities } = await db.cities.list({ take: 100 });
+      const payload = normalizeGtfsToImport(raw, cities, { sourceName, sourceType, sourceUrl });
+      const summary = await db.importData(payload);
+      await audit(req, 'import.gtfs', 'dataSource', sourceName, summary);
+      res.json(summary);
+    } catch (error) {
+      next(error instanceof Error && error.message.startsWith('Missing required GTFS')
+        ? badRequest(error.message)
+        : error);
     }
   });
 

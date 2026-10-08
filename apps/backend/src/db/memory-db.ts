@@ -38,6 +38,8 @@ import type {
   StopWithRoutes,
   UserRow,
 } from './types.js';
+import type { ImportPayload } from './types.js';
+import type { ImportSummary } from '@mowaslaty/shared';
 
 const clone = <T>(value: T): T => structuredClone(value);
 
@@ -525,5 +527,162 @@ export class MemoryDatabase implements Database {
       dataUpdates: this._dataUpdates.length,
       searches: this._searchCount,
     }),
+  };
+
+  // ============= Bulk import (GTFS & structured feeds) =============
+  importData = async (payload: ImportPayload): Promise<ImportSummary> => {
+    const summary: ImportSummary = {
+      sourceName: payload.sourceName,
+      stopsCreated: 0,
+      stopsLinked: 0,
+      routesCreated: 0,
+      routesUpdated: 0,
+      skippedRoutes: 0,
+      warnings: [...payload.warnings],
+    };
+
+    // Upsert the data source record.
+    let source = this._dataSources.find((s) => s.name === payload.sourceName);
+    if (!source) {
+      source = {
+        id: `source-${payload.sourceName.toLowerCase().replace(/\s+/g, '-')}`,
+        name: payload.sourceName,
+        description: 'استيراد آلي',
+        sourceType: payload.sourceType,
+        url: payload.sourceUrl ?? null,
+        lastSyncedAt: new Date().toISOString(),
+        syncStatus: 'SUCCESS',
+      };
+      this._dataSources.push(source);
+    } else {
+      source.lastSyncedAt = new Date().toISOString();
+      source.syncStatus = 'SUCCESS';
+      if (payload.sourceUrl) source.url = payload.sourceUrl;
+    }
+
+    // ---- Stops: match by externalId, then by normalized Arabic name ----
+    const extToStopId = new Map<string, string>();
+    for (const s of payload.stops) {
+      let existing = this._stops.find((x) => x.externalId === s.externalId);
+      if (!existing) {
+        const nameNorm = normalizeArabic(s.nameAr);
+        existing = this._stops.find((x) => normalizeArabic(x.nameAr) === nameNorm);
+      }
+      if (existing) {
+        if (!existing.externalId) existing.externalId = s.externalId;
+        extToStopId.set(s.externalId, existing.id);
+        summary.stopsLinked += 1;
+        continue;
+      }
+      if (!s.cityId) {
+        summary.warnings.push(`المحطة "${s.nameAr}" خارج نطاق المدن المعروفة — تم تجاوزها`);
+        continue;
+      }
+      const stop: StopDto = {
+        id: uuidv4(),
+        name: s.name,
+        nameAr: s.nameAr,
+        latitude: s.lat,
+        longitude: s.lng,
+        address: s.address ?? null,
+        type: 'BUS',
+        cityId: s.cityId,
+        areaId: null,
+        verified: false,
+        verifiedAt: null,
+        externalId: s.externalId,
+      };
+      this._stops.push(stop);
+      extToStopId.set(s.externalId, stop.id);
+      summary.stopsCreated += 1;
+    }
+
+    // ---- Routes: replace when externalId exists, otherwise create ----
+    for (const r of payload.routes) {
+      const stopIds = r.stopSequence
+        .map((ext) => extToStopId.get(ext))
+        .filter((id): id is string => Boolean(id));
+      if (stopIds.length < 2) {
+        summary.skippedRoutes += 1;
+        summary.warnings.push(`الخط "${r.nameAr}" لا يملك محطتين صالحين على الأقل — تم تجاوزه`);
+        continue;
+      }
+
+      const mode =
+        this._modes.find((m) => m.name === r.modeName) ?? this._modes.find((m) => m.name === 'Bus')!;
+      const firstStop = this._stops.find((s) => s.id === stopIds[0])!;
+      const routeStops: RouteStopDto[] = stopIds.map((stopId, i) => ({
+        id: `${r.externalId}::${stopId}`,
+        routeId: '', // filled below
+        stopId,
+        order: i + 1,
+        stop: this._stops.find((s) => s.id === stopId)!,
+      }));
+
+      const existing = this._routes.find((x) => x.externalId === r.externalId);
+      if (existing) {
+        existing.name = r.name;
+        existing.nameAr = r.nameAr;
+        existing.description = r.description ?? existing.description;
+        existing.transportModeId = mode.id;
+        existing.transportMode = mode;
+        existing.fare = r.fare;
+        existing.fareUpdatedAt = new Date().toISOString();
+        existing.fareSource = payload.sourceName;
+        existing.operatingHours = r.operatingHours ?? existing.operatingHours;
+        existing.dataSource = payload.sourceName;
+        existing.stops = routeStops.map((rs) => ({ ...rs, routeId: existing.id }));
+        existing.updatedAt = new Date().toISOString();
+        summary.routesUpdated += 1;
+        this._dataUpdates.unshift({
+          id: uuidv4(),
+          routeId: existing.id,
+          changeType: 'ROUTE_MODIFIED',
+          description: `تحديث الخط "${existing.nameAr}" من المصدر ${payload.sourceName}`,
+          createdAt: new Date().toISOString(),
+          route: { id: existing.id, nameAr: existing.nameAr },
+        });
+      } else {
+        const id = `route-ext-${r.externalId.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+        const route: RouteDto = {
+          id,
+          name: r.name,
+          nameAr: r.nameAr,
+          description: r.description ?? null,
+          transportModeId: mode.id,
+          cityId: firstStop.cityId,
+          fare: r.fare,
+          fareType: 'FIXED',
+          fareCurrency: 'EGP',
+          fareUpdatedAt: new Date().toISOString(),
+          fareSource: payload.sourceName,
+          status: 'ACTIVE',
+          operatingHours: r.operatingHours ?? null,
+          lastVerifiedAt: new Date().toISOString(),
+          confidenceLevel: 'HIGH',
+          dataSource: payload.sourceName,
+          dataSourceUrl: payload.sourceUrl ?? null,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          publishedAt: new Date().toISOString(),
+          externalId: r.externalId,
+          transportMode: mode,
+          city: this._cities.find((c) => c.id === firstStop.cityId) ?? undefined,
+          stops: routeStops.map((rs) => ({ ...rs, routeId: id })),
+        };
+        this._routes.push(route);
+        summary.routesCreated += 1;
+        this._dataUpdates.unshift({
+          id: uuidv4(),
+          routeId: id,
+          changeType: 'ROUTE_CREATED',
+          description: `إضافة الخط "${r.nameAr}" من المصدر ${payload.sourceName}`,
+          createdAt: new Date().toISOString(),
+          route: { id, nameAr: r.nameAr },
+        });
+      }
+    }
+
+    return summary;
   };
 }

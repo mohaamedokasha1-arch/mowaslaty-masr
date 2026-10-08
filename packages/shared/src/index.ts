@@ -107,6 +107,8 @@ export interface StopDto {
   areaId?: string | null;
   verified: boolean;
   verifiedAt?: string | null;
+  /** External id (e.g. GTFS stop_id) used for idempotent imports. */
+  externalId?: string | null;
   city?: CityDto;
   area?: AreaDto | null;
   distanceM?: number;
@@ -141,6 +143,9 @@ export interface RouteDto {
   dataSourceUrl?: string | null;
   createdAt?: string;
   updatedAt?: string;
+  publishedAt?: string | null;
+  /** External id (e.g. GTFS route_id) used for idempotent imports. */
+  externalId?: string | null;
   transportMode?: TransportModeDto;
   city?: CityDto;
   stops?: RouteStopDto[];
@@ -170,6 +175,29 @@ export interface DataUpdateDto {
   description: string;
   createdAt: string;
   route?: { id: string; nameAr: string } | null;
+}
+
+// ============= Data import (GTFS etc.) =============
+
+export const DATA_SOURCE_TYPES = [
+  'GOVERNMENT',
+  'TRANSIT_COMPANY',
+  'OSM',
+  'GTFS',
+  'MANUAL',
+  'COMMUNITY',
+  'EXTERNAL_API',
+] as const;
+export type DataSourceType = (typeof DATA_SOURCE_TYPES)[number];
+
+export interface ImportSummary {
+  sourceName: string;
+  stopsCreated: number;
+  stopsLinked: number;
+  routesCreated: number;
+  routesUpdated: number;
+  skippedRoutes: number;
+  warnings: string[];
 }
 
 export interface Pagination {

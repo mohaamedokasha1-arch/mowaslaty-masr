@@ -21,11 +21,13 @@ import type {
   DashboardStats,
   Database,
   DataSourceRow,
+  ImportPayload,
   PageOpts,
   RouteListOpts,
   StopWithRoutes,
   UserRow,
 } from './types.js';
+import type { ImportSummary } from '@mowaslaty/shared';
 
 /* The Prisma client must be generated (`npx prisma generate`) before use.
  * We type it loosely here so this module compiles in environments where the
@@ -87,6 +89,7 @@ export class PrismaDatabase implements Database {
       areaId: s.areaId,
       verified: s.verified,
       verifiedAt: iso(s.verifiedAt),
+      externalId: s.externalId ?? null,
       ...(s.city ? { city: this.mapCity(s.city) } : {}),
       ...(s.area ? { area: { id: s.area.id, name: s.area.name, nameAr: s.area.nameAr, cityId: s.area.cityId } } : {}),
     };
@@ -114,6 +117,7 @@ export class PrismaDatabase implements Database {
       dataSourceUrl: r.dataSourceUrl,
       createdAt: iso(r.createdAt) ?? undefined,
       updatedAt: iso(r.updatedAt) ?? undefined,
+      externalId: r.externalId ?? null,
       ...(r.transportMode ? { transportMode: this.mapMode(r.transportMode) } : {}),
       ...(r.city ? { city: this.mapCity(r.city) } : {}),
       ...(r.stops
@@ -549,6 +553,151 @@ export class PrismaDatabase implements Database {
       return { routes, activeRoutes, stops, verifiedStops, cities, reports, pendingReports, dataUpdates, searches };
     },
   };
+
+  /**
+   * Bulk import (GTFS etc.) — idempotent by externalId, with Arabic-name
+   * fallback matching for stops. Mirrors the in-memory implementation.
+   */
+  async importData(payload: ImportPayload): Promise<ImportSummary> {
+    const summary: ImportSummary = {
+      sourceName: payload.sourceName,
+      stopsCreated: 0,
+      stopsLinked: 0,
+      routesCreated: 0,
+      routesUpdated: 0,
+      skippedRoutes: 0,
+      warnings: [...payload.warnings],
+    };
+
+    await this.prisma.dataSource.upsert({
+      where: { name: payload.sourceName },
+      update: { lastSyncedAt: new Date(), syncStatus: 'SUCCESS', url: payload.sourceUrl ?? undefined },
+      create: {
+        name: payload.sourceName,
+        description: 'استيراد آلي',
+        sourceType: payload.sourceType,
+        url: payload.sourceUrl ?? null,
+        lastSyncedAt: new Date(),
+        syncStatus: 'SUCCESS',
+      },
+    });
+
+    const extToStopId = new Map<string, string>();
+    for (const s of payload.stops) {
+      let existing = await this.prisma.stop.findFirst({ where: { externalId: s.externalId } });
+      if (!existing) {
+        existing = await this.prisma.stop.findFirst({ where: { nameAr: s.nameAr } });
+      }
+      if (existing) {
+        if (!existing.externalId) {
+          await this.prisma.stop.update({ where: { id: existing.id }, data: { externalId: s.externalId } });
+        }
+        extToStopId.set(s.externalId, existing.id);
+        summary.stopsLinked += 1;
+        continue;
+      }
+      if (!s.cityId) {
+        summary.warnings.push(`المحطة "${s.nameAr}" خارج نطاق المدن المعروفة — تم تجاوزها`);
+        continue;
+      }
+      const created = await this.prisma.stop.create({
+        data: {
+          name: s.name,
+          nameAr: s.nameAr,
+          latitude: s.lat,
+          longitude: s.lng,
+          address: s.address ?? null,
+          type: 'BUS',
+          cityId: s.cityId,
+          externalId: s.externalId,
+        },
+      });
+      extToStopId.set(s.externalId, created.id);
+      summary.stopsCreated += 1;
+    }
+
+    for (const r of payload.routes) {
+      const stopIds = r.stopSequence
+        .map((ext) => extToStopId.get(ext))
+        .filter((id): id is string => Boolean(id));
+      if (stopIds.length < 2) {
+        summary.skippedRoutes += 1;
+        summary.warnings.push(`الخط "${r.nameAr}" لا يملك محطتين صالحين على الأقل — تم تجاوزه`);
+        continue;
+      }
+
+      const mode =
+        (await this.prisma.transportMode.findUnique({ where: { name: r.modeName } })) ??
+        (await this.prisma.transportMode.findUnique({ where: { name: 'Bus' } }));
+      const firstStop = await this.prisma.stop.findUnique({ where: { id: stopIds[0] } });
+
+      const existing = await this.prisma.route.findFirst({ where: { externalId: r.externalId } });
+      if (existing) {
+        await this.prisma.route.update({
+          where: { id: existing.id },
+          data: {
+            name: r.name,
+            nameAr: r.nameAr,
+            description: r.description ?? undefined,
+            transportModeId: mode?.id ?? existing.transportModeId,
+            fare: r.fare,
+            fareUpdatedAt: new Date(),
+            fareSource: payload.sourceName,
+            operatingHours: r.operatingHours ?? undefined,
+            dataSource: payload.sourceName,
+          },
+        });
+        await this.prisma.routeStop.deleteMany({ where: { routeId: existing.id } });
+        for (const [i, stopId] of stopIds.entries()) {
+          await this.prisma.routeStop.create({
+            data: { routeId: existing.id, stopId, order: i + 1 },
+          });
+        }
+        await this.prisma.dataUpdate.create({
+          data: {
+            routeId: existing.id,
+            changeType: 'ROUTE_MODIFIED',
+            description: `تحديث الخط "${r.nameAr}" من المصدر ${payload.sourceName}`,
+          },
+        });
+        summary.routesUpdated += 1;
+      } else {
+        const created = await this.prisma.route.create({
+          data: {
+            name: r.name,
+            nameAr: r.nameAr,
+            description: r.description ?? null,
+            transportModeId: mode!.id,
+            cityId: firstStop!.cityId,
+            fare: r.fare,
+            fareUpdatedAt: new Date(),
+            fareSource: payload.sourceName,
+            operatingHours: r.operatingHours ?? null,
+            status: 'ACTIVE',
+            confidenceLevel: 'HIGH',
+            lastVerifiedAt: new Date(),
+            dataSource: payload.sourceName,
+            dataSourceUrl: payload.sourceUrl ?? null,
+            externalId: r.externalId,
+            publishedAt: new Date(),
+            stops: {
+              create: stopIds.map((stopId, i) => ({ stopId, order: i + 1 })),
+            },
+          },
+        });
+        await this.prisma.dataUpdate.create({
+          data: {
+            routeId: created.id,
+            changeType: 'ROUTE_CREATED',
+            description: `إضافة الخط "${r.nameAr}" من المصدر ${payload.sourceName}`,
+          },
+        });
+        summary.routesCreated += 1;
+      }
+    }
+
+    return summary;
+  }
 }
 
 export { uuidv4 };

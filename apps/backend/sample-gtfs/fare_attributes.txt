@@ -1,0 +1,2 @@
+fare_id,price,currency_type,payment_method,transfers
+F1,4.5,EGP,0,0

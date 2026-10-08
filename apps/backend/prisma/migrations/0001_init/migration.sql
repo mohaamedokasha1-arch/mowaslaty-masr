@@ -84,6 +84,7 @@ CREATE TABLE "Stop" (
     "longitude" DOUBLE PRECISION NOT NULL,
     "address" TEXT,
     "type" "StopType" NOT NULL DEFAULT 'BUS',
+    "externalId" TEXT,
     "cityId" TEXT NOT NULL,
     "areaId" TEXT,
     "verified" BOOLEAN NOT NULL DEFAULT false,
@@ -115,6 +116,7 @@ CREATE TABLE "Route" (
     "confidenceLevel" "ConfidenceLevel" NOT NULL DEFAULT 'MEDIUM',
     "dataSource" TEXT,
     "dataSourceUrl" TEXT,
+    "externalId" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "publishedAt" TIMESTAMP(3),
@@ -284,11 +286,13 @@ CREATE INDEX "TransportMode_name_idx" ON "TransportMode"("name");
 CREATE INDEX "Stop_cityId_idx" ON "Stop"("cityId");
 CREATE INDEX "Stop_areaId_idx" ON "Stop"("areaId");
 CREATE INDEX "Stop_latitude_longitude_idx" ON "Stop"("latitude", "longitude");
+CREATE INDEX "Stop_externalId_idx" ON "Stop"("externalId");
 
 CREATE INDEX "Route_cityId_idx" ON "Route"("cityId");
 CREATE INDEX "Route_transportModeId_idx" ON "Route"("transportModeId");
 CREATE INDEX "Route_status_idx" ON "Route"("status");
 CREATE INDEX "Route_lastVerifiedAt_idx" ON "Route"("lastVerifiedAt");
+CREATE INDEX "Route_externalId_idx" ON "Route"("externalId");
 
 CREATE UNIQUE INDEX "RouteStop_routeId_stopId_order_key" ON "RouteStop"("routeId", "stopId", "order");
 CREATE INDEX "RouteStop_routeId_idx" ON "RouteStop"("routeId");

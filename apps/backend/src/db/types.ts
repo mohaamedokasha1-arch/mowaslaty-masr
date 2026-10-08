@@ -11,6 +11,7 @@ import type {
   ConfidenceLevel,
   DataUpdateDto,
   FareType,
+  ImportSummary,
   ReportDto,
   ReportStatus,
   ReportType,
@@ -65,6 +66,35 @@ export interface DashboardStats {
   pendingReports: number;
   dataUpdates: number;
   searches: number;
+}
+
+/** Payload for bulk imports (GTFS and other structured feeds). */
+export interface ImportPayload {
+  sourceName: string;
+  sourceType: string;
+  sourceUrl?: string;
+  stops: Array<{
+    externalId: string;
+    name: string;
+    nameAr: string;
+    lat: number;
+    lng: number;
+    cityId: string | null;
+    address?: string;
+  }>;
+  routes: Array<{
+    externalId: string;
+    name: string;
+    nameAr: string;
+    description?: string;
+    /** TransportMode.name, e.g. "Bus", "Metro" */
+    modeName: string;
+    fare: number | null;
+    operatingHours?: string;
+    /** ordered list of stop externalIds */
+    stopSequence: string[];
+  }>;
+  warnings: string[];
 }
 
 export interface PageOpts {
@@ -194,6 +224,12 @@ export interface Database {
   stats: {
     dashboard(): Promise<DashboardStats>;
   };
+
+  /**
+   * Bulk-import stops & routes from a structured feed (GTFS, government data…).
+   * Idempotent: stops/routes are matched by externalId (then by Arabic name).
+   */
+  importData(payload: ImportPayload): Promise<ImportSummary>;
 }
 
 export type { ConfidenceLevel, FareType, RouteStatus, StopType };
