@@ -1,0 +1,23 @@
+{
+  "name": "mowaslaty-masr",
+  "version": "1.0.0",
+  "private": true,
+  "description": "مواصلاتي مصر — the comprehensive platform for public transportation in Egypt",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:backend": "npm run dev --workspace @mowaslaty/backend",
+    "dev:web": "npm run dev --workspace @mowaslaty/web",
+    "dev:admin": "npm run dev --workspace @mowaslaty/admin",
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test --workspace @mowaslaty/backend",
+    "type-check": "npm run type-check --workspace @mowaslaty/backend",
+    "lint": "npm run lint --workspace @mowaslaty/backend",
+    "db:seed": "npm run db:seed --workspace @mowaslaty/backend"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "name": "@mowaslaty/admin",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Mowaslaty Egypt - Admin dashboard (Next.js, Arabic RTL)",
+  "scripts": {
+    "dev": "next dev -p 3002 -H 0.0.0.0",
+    "build": "next build",
+    "start": "next start -p 3002 -H 0.0.0.0",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@mowaslaty/shared": "*",
+    "next": "^14.2.16",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.7",
+    "@types/react": "^18.3.1",
+    "@types/react-dom": "^18.3.0",
+    "typescript": "^5.4.5"
+  }
+}

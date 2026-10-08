@@ -1,0 +1,73 @@
+# Mowaslaty Egypt — full-stack local/production stack
+#
+#   docker compose up --build
+#
+# Services:
+#   db       → PostgreSQL 16
+#   backend  → Express API      (http://localhost:3001)
+#   web      → Public website   (http://localhost:3000)
+#   admin    → Admin dashboard  (http://localhost:3002)
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: mowaslaty
+      POSTGRES_PASSWORD: mowaslaty_dev
+      POSTGRES_DB: mowaslaty_dev
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U mowaslaty -d mowaslaty_dev']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    ports:
+      - '5432:5432'
+
+  backend:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      HOST: 0.0.0.0
+      DATABASE_URL: postgresql://mowaslaty:mowaslaty_dev@db:5432/mowaslaty_dev
+      DB_DRIVER: prisma
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      JWT_EXPIRY: 7d
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@mowaslaty.com}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-change-me-in-production}
+      GEOCODING_ENABLED: ${GEOCODING_ENABLED:-true}
+      CORS_ORIGIN: http://localhost:3000,http://localhost:3002
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - '3001:3001'
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    environment:
+      BACKEND_URL: http://backend:3001
+    depends_on:
+      - backend
+    ports:
+      - '3000:3000'
+
+  admin:
+    build:
+      context: .
+      dockerfile: apps/admin/Dockerfile
+    environment:
+      BACKEND_URL: http://backend:3001
+    depends_on:
+      - backend
+    ports:
+      - '3002:3002'
+
+volumes:
+  pgdata:
