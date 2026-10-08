@@ -1,0 +1,14 @@
+route_id,agency_id,route_short_name,route_long_name,route_type,route_color,route_text_color
+R001,CBN,In,Investment,3,FF6B35,FFFFFF
+R002,CBN,Al-Am,Al Amin,3,FF6B35,FFFFFF
+R003,CBN,Al-Kh,Al Khamstlaf,3,FF6B35,FFFFFF
+R004,CBN,El-Za-Re,El Zahour Regular,3,FF6B35,FFFFFF
+R005,CBN,El-Za-Ou,El Zahour Outer,3,FF6B35,FFFFFF
+R006,CBN,Ka,Kasra,3,FF6B35,FFFFFF
+R007,CBN,El-Sa-Me,El Sayed Metwaly,3,FF6B35,FFFFFF
+R008,CBN,Al-Sa,Al Salam,3,FF6B35,FFFFFF
+R009,CBN,Ferry-Pf-Ps,Ferry Port Fouad Port Said,3,FF6B35,FFFFFF
+R010,CBN,Al-Ma,Al Maashat,3,FF6B35,FFFFFF
+R011,CBN,Ab-Ba,Abu Bakr,3,FF6B35,FFFFFF
+R012,CBN,Al-Ob,Al Obour,3,FF6B35,FFFFFF
+R013,CBN,Al-Em,Al Hay Al Emarati,3,FF6B35,FFFFFF

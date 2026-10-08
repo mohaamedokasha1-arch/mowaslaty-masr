@@ -69,6 +69,21 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <Link href="/routes">تصفح الخطوط</Link> · <Link href="/report">أرسل بلاغًا</Link> ·{' '}
                 <Link href="/cities">المدن المتاحة</Link>
               </p>
+              <p style={{ opacity: 0.85, fontSize: '0.85rem', maxWidth: 420 }}>
+                مصادر بيانات حقيقية: شبكة أتوبيسات بورسعيد —{' '}
+                <a href="https://github.com/youssefelzedy/PortSaid-Transit-GTFS" target="_blank" rel="noreferrer">
+                  PortSaid-Transit-GTFS
+                </a>{' '}
+                · مترو القاهرة (2016) —{' '}
+                <a href="https://github.com/transportforcairo/Metro-GTFS" target="_blank" rel="noreferrer">
+                  Transport for Cairo
+                </a>
+                ، مرخّصة بموجب{' '}
+                <a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="noreferrer">
+                  CC BY-NC 4.0
+                </a>
+                .
+              </p>
               <p style={{ opacity: 0.7 }}>© 2026 مواصلاتي مصر</p>
             </div>
           </div>

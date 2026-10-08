@@ -561,12 +561,19 @@ export class MemoryDatabase implements Database {
     }
 
     // ---- Stops: match by externalId, then by normalized Arabic name ----
+    // Name matching is guarded by proximity (≤3km) so identically-named stops
+    // in different cities never merge.
     const extToStopId = new Map<string, string>();
     for (const s of payload.stops) {
       let existing = this._stops.find((x) => x.externalId === s.externalId);
       if (!existing) {
         const nameNorm = normalizeArabic(s.nameAr);
-        existing = this._stops.find((x) => normalizeArabic(x.nameAr) === nameNorm);
+        existing = this._stops.find(
+          (x) =>
+            normalizeArabic(x.nameAr) === nameNorm &&
+            haversineMeters({ lat: s.lat, lng: s.lng }, { lat: x.latitude, lng: x.longitude }) <=
+              3000,
+        );
       }
       if (existing) {
         if (!existing.externalId) existing.externalId = s.externalId;

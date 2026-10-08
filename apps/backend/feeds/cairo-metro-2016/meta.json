@@ -1,0 +1,11 @@
+{
+  "sourceName": "مترو القاهرة (Transport for Cairo 2016)",
+  "sourceType": "GTFS",
+  "sourceUrl": "https://github.com/transportforcairo/Metro-GTFS",
+  "license": "CC BY-NC 4.0",
+  "routeNameAr": {
+    "L1": "مترو الخط الأول (حلوان – المرج)",
+    "L2": "مترو الخط الثاني (شبرا الخيمة – المنيب)",
+    "L3": "مترو الخط الثالث (العتبة – الأهرام)"
+  }
+}

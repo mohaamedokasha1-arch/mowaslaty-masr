@@ -33,11 +33,11 @@ describe('basic endpoints', () => {
 });
 
 describe('cities & modes', () => {
-  it('GET /api/cities lists 3 cities with counts', async () => {
+  it('GET /api/cities lists 4 cities with counts', async () => {
     const res = await request(app).get('/api/cities');
     expect(res.status).toBe(200);
-    expect(res.body.data).toHaveLength(3);
-    expect(res.body.pagination.total).toBe(3);
+    expect(res.body.data).toHaveLength(4);
+    expect(res.body.pagination.total).toBe(4);
     const zagazig = res.body.data.find((c: { name: string }) => c.name === 'Zagazig');
     expect(zagazig._count.stops).toBeGreaterThanOrEqual(10);
     expect(zagazig._count.routes).toBeGreaterThanOrEqual(4);
@@ -252,7 +252,7 @@ describe('admin API & auth', () => {
       .set('Authorization', `Bearer ${token}`);
     expect(res.status).toBe(200);
     expect(res.body.stats.routes).toBe(9);
-    expect(res.body.stats.cities).toBe(3);
+    expect(res.body.stats.cities).toBe(4);
     expect(res.body.stats.pendingReports).toBeGreaterThanOrEqual(2);
     expect(res.body.recentUpdates.length).toBeGreaterThan(0);
   });

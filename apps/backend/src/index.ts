@@ -1,10 +1,12 @@
 import { createApp } from './app.js';
 import { createDatabase } from './db/index.js';
+import { importBundledFeeds } from './database/bundles.js';
 import { env } from './utils/env.js';
 import { logger } from './utils/logger.js';
 
 async function main() {
   const db = await createDatabase();
+  await importBundledFeeds(db);
   const app = createApp(db);
 
   const port = parseInt(env.PORT, 10);

@@ -586,7 +586,30 @@ export class PrismaDatabase implements Database {
     for (const s of payload.stops) {
       let existing = await this.prisma.stop.findFirst({ where: { externalId: s.externalId } });
       if (!existing) {
-        existing = await this.prisma.stop.findFirst({ where: { nameAr: s.nameAr } });
+        // Name matching guarded by ~3km proximity (no cross-city merges).
+        const dLat = 3000 / 111_320;
+        const dLng = 3000 / (111_320 * Math.cos((s.lat * Math.PI) / 180) || 1);
+        const candidates = await this.prisma.stop.findMany({
+          where: {
+            nameAr: s.nameAr,
+            latitude: { gte: s.lat - dLat, lte: s.lat + dLat },
+            longitude: { gte: s.lng - dLng, lte: s.lng + dLng },
+          },
+        });
+        existing =
+          candidates.find(
+            (c: any) =>
+              6371000 *
+                2 *
+                Math.asin(
+                  Math.sqrt(
+                    Math.sin(((c.latitude - s.lat) * Math.PI) / 360) ** 2 +
+                      Math.cos((s.lat * Math.PI) / 180) *
+                        Math.cos((c.latitude * Math.PI) / 180) *
+                        Math.sin(((c.longitude - s.lng) * Math.PI) / 360) ** 2,
+                  ),
+                ) <= 3000,
+          ) ?? null;
       }
       if (existing) {
         if (!existing.externalId) {

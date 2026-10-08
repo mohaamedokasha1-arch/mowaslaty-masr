@@ -112,6 +112,7 @@ export const cities: SeedCity[] = [
   { ref: 'cairo', name: 'Cairo', nameAr: 'القاهرة', nameEn: 'Cairo', latitude: 30.0444, longitude: 31.2357, description: 'العاصمة المصرية' },
   { ref: 'zagazig', name: 'Zagazig', nameAr: 'الزقازيق', nameEn: 'Zagazig', latitude: 30.5826, longitude: 31.9453, description: 'عاصمة محافظة الشرقية' },
   { ref: 'ismailia', name: 'Ismailia', nameAr: 'الإسماعيلية', nameEn: 'Ismailia', latitude: 30.5965, longitude: 32.2721, description: 'مدينة على قناة السويس' },
+  { ref: 'portsaid', name: 'Port Said', nameAr: 'بورسعيد', nameEn: 'Port Said', latitude: 31.2653, longitude: 32.3019, description: 'مدينة بورسعيد على مدخل قناة السويس الشمالي' },
 ];
 
 // ============= Areas =============
